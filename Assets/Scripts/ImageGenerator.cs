@@ -18,11 +18,11 @@ public class ImageGenerator : MonoBehaviour
     public Button generateButton;
     public RawImage resultImage;
     public TextMeshProUGUI statusText;
-
+    
     // --- API Configuration (No changes here) ---
     [Header("API Configuration")]
-    public string apiKey = "tgp_v1_o22BAWeNWFpwtrZy3emEVHrucGvX4vgDsyXW0lswRNU"; // Replace with your Together AI API key
-
+    private string apiKey = ""; // Replace with your Together AI API key
+    private const string ApiKeyPref = "UserApiKey";
     private const string ApiUrl = "https://api.together.xyz/v1/images/generations";
     private const string OutputFolderName = "AI_Generated_Images"; // The name of our public folder
 
@@ -31,7 +31,11 @@ public class ImageGenerator : MonoBehaviour
     {
         generateButton.onClick.AddListener(OnGenerateButtonClick);
 
-        if (string.IsNullOrEmpty(apiKey) || apiKey == "YOUR_API_KEY")
+        if(PlayerPrefs.HasKey(ApiKeyPref))
+        {
+            apiKey = PlayerPrefs.GetString(ApiKeyPref);
+        }
+        else
         {
             statusText.text = "API Key not set. Please enter your API Key in the Inspector.";
             generateButton.interactable = false;
