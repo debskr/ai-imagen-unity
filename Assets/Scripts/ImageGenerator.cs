@@ -18,28 +18,15 @@ public class ImageGenerator : MonoBehaviour
     public Button generateButton;
     public RawImage resultImage;
     public TextMeshProUGUI statusText;
-    
-    // --- API Configuration (No changes here) ---
-    [Header("API Configuration")]
-    private string apiKey = ""; // Replace with your Together AI API key
-    private const string ApiKeyPref = "UserApiKey";
-    private const string ApiUrl = "https://api.together.xyz/v1/images/generations";
+
+    // The base URL for Pollination AI image generation. The prompt and other parameters will be appended to this.
+    private const string ApiUrl = "https://image.pollinations.ai/prompt/";
     private const string OutputFolderName = "AI_Generated_Images"; // The name of our public folder
 
     // --- Start and other UI methods (No changes here) ---
     private void Start()
     {
         generateButton.onClick.AddListener(OnGenerateButtonClick);
-
-        if(PlayerPrefs.HasKey(ApiKeyPref))
-        {
-            apiKey = PlayerPrefs.GetString(ApiKeyPref);
-        }
-        else
-        {
-            statusText.text = "API Key not set. Please enter your API Key in the Inspector.";
-            generateButton.interactable = false;
-        }
     }
 
     private void OnGenerateButtonClick()
@@ -47,7 +34,7 @@ public class ImageGenerator : MonoBehaviour
         StartCoroutine(GenerateImage());
     }
 
-    // --- GenerateImage Coroutine (Minor change to call the new Save method) ---
+    // --- GenerateImage Coroutine (Revised to include a random seed) ---
     private IEnumerator GenerateImage()
     {
         string prompt = promptInputField.text;
@@ -60,23 +47,24 @@ public class ImageGenerator : MonoBehaviour
         generateButton.interactable = false;
         statusText.text = "Generating image...";
 
-        var requestData = new RequestData
-        {
-            prompt = prompt,
-            model = "black-forest-labs/FLUX.1-schnell-Free",
-            steps = 4,
-        };
+        // Get the selected resolution
+        (int width, int height) = GetResolution(resolutionDropdown.value);
 
-        (requestData.width, requestData.height) = GetResolution(resolutionDropdown.value);
-        string jsonData = JsonUtility.ToJson(requestData);
+        // --- URL Construction for Pollination AI (GET Request) ---
+        // The prompt is URL-encoded and appended to the base URL.
+        // Other parameters like width, height, model, and seed are added as query parameters.
+        string encodedPrompt = UnityWebRequest.EscapeURL(prompt);
 
-        using (UnityWebRequest request = new UnityWebRequest(ApiUrl, "POST"))
+        // --- NEW: Generate a random seed for unique images ---
+        int randomSeed = UnityEngine.Random.Range(0, 1000000); // Generate a random integer for the seed
+
+        // Construct the full URL with all parameters, including the new random seed
+        string fullUrl = $"{ApiUrl}{encodedPrompt}?width={width}&height={height}&model=turbo&seed={randomSeed}";
+
+        Debug.Log("Requesting URL: " + fullUrl); // Log the URL for debugging purposes
+
+        using (UnityWebRequest request = UnityWebRequestTexture.GetTexture(fullUrl))
         {
-            byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(jsonData);
-            request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-            request.downloadHandler = new DownloadHandlerBuffer();
-            request.SetRequestHeader("Content-Type", "application/json");
-            request.SetRequestHeader("Authorization", "Bearer " + apiKey);
 
             yield return request.SendWebRequest();
 
@@ -87,39 +75,17 @@ public class ImageGenerator : MonoBehaviour
                 yield break;
             }
 
-            ResponseData responseData = JsonUtility.FromJson<ResponseData>(request.downloadHandler.text);
-            if (responseData.data == null || responseData.data.Length == 0)
-            {
-                statusText.text = "No image URL received in response.";
-                generateButton.interactable = true;
-                yield break;
-            }
+            // With Pollination AI, the response is the image itself, so we can directly get the texture.
+            Texture2D texture = ((DownloadHandlerTexture)request.downloadHandler).texture;
+            resultImage.texture = texture;
+            resultImage.gameObject.SetActive(true);
 
-            string imageUrl = responseData.data[0].url;
-            statusText.text = "Downloading image...";
-
-            using (UnityWebRequest imageRequest = UnityWebRequestTexture.GetTexture(imageUrl))
-            {
-                yield return imageRequest.SendWebRequest();
-
-                if (imageRequest.result != UnityWebRequest.Result.Success)
-                {
-                    statusText.text = $"Error downloading image: {imageRequest.error}";
-                    generateButton.interactable = true;
-                    yield break;
-                }
-
-                Texture2D texture = ((DownloadHandlerTexture)imageRequest.downloadHandler).texture;
-                resultImage.texture = texture;
-                resultImage.gameObject.SetActive(true);
-
-                // This now calls the new, corrected Save method
-                SaveImageToGallery(texture);
-            }
+            // Save the downloaded image to the gallery
+            SaveImageToGallery(texture);
         }
     }
 
-    // --- COMPLETELY REWRITTEN SaveImageToGallery METHOD ---
+    // --- COMPLETELY REWRITTEN SaveImageToGallery METHOD (No changes here) ---
     private void SaveImageToGallery(Texture2D texture)
     {
         statusText.text = "Saving image...";
@@ -192,7 +158,7 @@ public class ImageGenerator : MonoBehaviour
 #endif
     }
 
-    // --- GetResolution and data structures (No changes here) ---
+    // --- GetResolution and data structures (No changes here, and Request/Response classes are not used) ---
     private (int, int) GetResolution(int dropdownIndex)
     {
         switch (dropdownIndex)
@@ -205,7 +171,9 @@ public class ImageGenerator : MonoBehaviour
         }
     }
 
-    [System.Serializable] private class RequestData { public string prompt, model; public int steps, width, height; }
-    [System.Serializable] private class ResponseData { public ImageInfo[] data; }
-    [System.Serializable] private class ImageInfo { public string url; }
+    // The following data structures are no longer needed for the Pollination AI implementation
+    // as the request is a simple URL and the response is the image texture directly.
+    // [System.Serializable] private class RequestData { public string prompt, model; public int steps, width, height; }
+    // [System.Serializable] private class ResponseData { public ImageInfo[] data; }
+    // [System.Serializable] private class ImageInfo { public string url; }
 }
