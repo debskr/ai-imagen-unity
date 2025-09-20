@@ -13,10 +13,10 @@ public class ImageGenerator : MonoBehaviour
 {
     // --- UI Elements (No changes here) ---
     [Header("UI Elements")]
-    public TMP_InputField promptInputField;
+    public InputField promptInputField;
     public TMP_Dropdown resolutionDropdown;
     public Button generateButton;
-    public RawImage resultImage;
+    public RawImage[] resultImage;
     public TextMeshProUGUI statusText;
 
     // The base URL for Pollination AI image generation. The prompt and other parameters will be appended to this.
@@ -59,7 +59,7 @@ public class ImageGenerator : MonoBehaviour
         int randomSeed = UnityEngine.Random.Range(0, 1000000); // Generate a random integer for the seed
 
         // Construct the full URL with all parameters, including the new random seed
-        string fullUrl = $"{ApiUrl}{encodedPrompt}?width={width}&height={height}&model=turbo&seed={randomSeed}";
+        string fullUrl = $"{ApiUrl}{encodedPrompt}?width={width}&height={height}&model=turbo&seed={randomSeed}&enhance=true";
 
         Debug.Log("Requesting URL: " + fullUrl); // Log the URL for debugging purposes
 
@@ -77,9 +77,39 @@ public class ImageGenerator : MonoBehaviour
 
             // With Pollination AI, the response is the image itself, so we can directly get the texture.
             Texture2D texture = ((DownloadHandlerTexture)request.downloadHandler).texture;
-            resultImage.texture = texture;
-            resultImage.gameObject.SetActive(true);
+            
+            if(resolutionDropdown.value == 0)
+            {
+                resultImage[0].texture = texture;
+                resultImage[0].gameObject.SetActive(true);
+                resultImage[1].gameObject.SetActive(false);
+                resultImage[2].gameObject.SetActive(false);
+            }
+            else if(resolutionDropdown.value == 1)
+            {
+                resultImage[1].texture = texture;
+                resultImage[1].gameObject.SetActive(true);
+                resultImage[0].gameObject.SetActive(false);
+                resultImage[2].gameObject.SetActive(false);
+            }
+            else if(resolutionDropdown.value == 2)
+            {
+                resultImage[2].texture = texture;
+                resultImage[2].gameObject.SetActive(true);
+                resultImage[0].gameObject.SetActive(false);
+                resultImage[1].gameObject.SetActive(false);
+            }
+            else
+            {
+                resultImage[0].texture = texture;
+                resultImage[0].gameObject.SetActive(true);
+                resultImage[1].gameObject.SetActive(false);
+                resultImage[2].gameObject.SetActive(false);
+            }
 
+            //resultImage.texture = texture;
+            //resultImage.gameObject.SetActive(true);
+            Debug.Log(resolutionDropdown.value);
             // Save the downloaded image to the gallery
             SaveImageToGallery(texture);
         }
@@ -163,11 +193,10 @@ public class ImageGenerator : MonoBehaviour
     {
         switch (dropdownIndex)
         {
-            case 0: return (1024, 1024); // 1:1
-            case 1: return (1344, 768);  // 16:9
-            case 2: return (1152, 896);  // 4:3
-            case 3: return (768, 1344);  // 9:16
-            default: return (1024, 1024);
+            case 0: return (1280, 1280); // 1:1
+            case 1: return (1600, 900);  // 16:9
+            case 2: return (900, 1600);  // 9:16
+            default: return (1280, 1280);
         }
     }
 
